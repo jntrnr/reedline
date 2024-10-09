@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::mpsc::{channel, Receiver, Sender},
+};
 
 use itertools::Itertools;
 use nu_ansi_term::{Color, Style};
@@ -163,6 +166,10 @@ pub struct Reedline {
 
     #[cfg(feature = "external_printer")]
     external_printer: Option<ExternalPrinter<String>>,
+
+    /// A ReedlineEvent Sender, use this to submit events to the queue
+    pub reedline_event_sender: Sender<ReedlineEvent>,
+    reedline_event_receiver: Receiver<ReedlineEvent>,
 }
 
 struct BufferEditor {
@@ -202,6 +209,8 @@ impl Reedline {
         let edit_mode = Box::<Emacs>::default();
         let hist_session_id = None;
 
+        let (reedline_event_sender, reedline_event_receiver) = channel();
+
         Reedline {
             editor: Editor::default(),
             history,
@@ -236,6 +245,8 @@ impl Reedline {
             kitty_protocol: KittyProtocolGuard::default(),
             #[cfg(feature = "external_printer")]
             external_printer: None,
+            reedline_event_receiver,
+            reedline_event_sender,
         }
     }
 
@@ -718,6 +729,13 @@ impl Reedline {
 
             let mut latest_resize = None;
             loop {
+                while let Ok(reedline_event) = self.reedline_event_receiver.try_recv() {
+                    reedline_events.push(reedline_event);
+                }
+                if !reedline_events.is_empty() {
+                    break;
+                }
+
                 match event::read()? {
                     Event::Resize(x, y) => {
                         latest_resize = Some((x, y));
@@ -763,6 +781,7 @@ impl Reedline {
             //
             // (Text should only be `EditCommand::InsertChar`s)
             let mut last_edit_commands = None;
+
             for event in crossterm_events.drain(..) {
                 match (&mut last_edit_commands, self.edit_mode.parse_event(event)) {
                     (None, ReedlineEvent::Edit(ec)) => {
@@ -783,6 +802,10 @@ impl Reedline {
             }
             if let Some(ec) = last_edit_commands {
                 reedline_events.push(ReedlineEvent::Edit(ec));
+            }
+
+            while let Ok(reedline_event) = self.reedline_event_receiver.try_recv() {
+                reedline_events.push(reedline_event);
             }
 
             for event in reedline_events.drain(..) {
@@ -1647,6 +1670,12 @@ impl Reedline {
                     .and_then(|history| history.command_line.split_whitespace().next_back())
                     .map(|token| (parsed.remainder.len(), indicator.len(), token.to_string())),
             });
+
+        // if self.immediately_accept_bashisms {
+        //     if let Err(_e) = self.reedline_event_sender.send(ReedlineEvent::Submit) {
+        //         // handle or log _e
+        //     }
+        // }
 
         if let Some((start, size, history)) = history_result {
             let edits = vec![
