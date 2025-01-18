@@ -278,6 +278,14 @@ pub enum EditCommand {
     /// Paste content from system clipboard at the current cursor position
     #[cfg(feature = "system_clipboard")]
     PasteSystem,
+
+    /// Delete text between matching characters atomically
+    CutInside {
+        /// Left character of the pair
+        left_char: char,
+        /// Right character of the pair (usually matching bracket)
+        right_char: char,
+    },
 }
 
 impl Display for EditCommand {
@@ -371,6 +379,7 @@ impl Display for EditCommand {
             EditCommand::CopySelectionSystem => write!(f, "CopySelectionSystem"),
             #[cfg(feature = "system_clipboard")]
             EditCommand::PasteSystem => write!(f, "PasteSystem"),
+            EditCommand::CutInside { .. } => write!(f, "CutInside Value: <char> <char>"),
         }
     }
 }
@@ -451,6 +460,7 @@ impl EditCommand {
             EditCommand::CopySelection => EditType::NoOp,
             #[cfg(feature = "system_clipboard")]
             EditCommand::CopySelectionSystem => EditType::NoOp,
+            EditCommand::CutInside { .. } => EditType::EditText,
         }
     }
 }
@@ -644,6 +654,9 @@ pub enum ReedlineEvent {
 
     /// Open text editor
     OpenEditor,
+
+    /// Reset the current text selection
+    ResetSelection,
 }
 
 impl Display for ReedlineEvent {
@@ -687,6 +700,7 @@ impl Display for ReedlineEvent {
             ReedlineEvent::MenuPagePrevious => write!(f, "MenuPagePrevious"),
             ReedlineEvent::ExecuteHostCommand(_) => write!(f, "ExecuteHostCommand"),
             ReedlineEvent::OpenEditor => write!(f, "OpenEditor"),
+            ReedlineEvent::ResetSelection => write!(f, "ResetSelection"),
         }
     }
 }
