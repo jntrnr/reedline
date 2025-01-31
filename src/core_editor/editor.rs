@@ -120,6 +120,7 @@ impl Editor {
             EditCommand::CutSelection => self.cut_selection_to_cut_buffer(),
             EditCommand::CopySelection => self.copy_selection_to_cut_buffer(),
             EditCommand::Paste => self.paste_cut_buffer(),
+            EditCommand::SwapCursorAndAnchor => self.swap_cursor_and_anchor(),
             #[cfg(feature = "system_clipboard")]
             EditCommand::CutSelectionSystem => self.cut_selection_to_system(),
             #[cfg(feature = "system_clipboard")]
@@ -149,6 +150,14 @@ impl Editor {
 
         self.update_undo_state(new_undo_behavior);
     }
+
+    fn swap_cursor_and_anchor(&mut self) {
+        if let Some(anchor) = self.selection_anchor {
+            self.selection_anchor = Some(self.insertion_point());
+            self.line_buffer.set_insertion_point(anchor);
+        }
+    }
+
     fn update_selection_anchor(&mut self, select: bool) {
         self.selection_anchor = if select {
             self.selection_anchor
@@ -564,11 +573,12 @@ impl Editor {
     /// The range is guaranteed to be ascending.
     pub fn get_selection(&self) -> Option<(usize, usize)> {
         self.selection_anchor.map(|selection_anchor| {
-            if self.insertion_point() > selection_anchor {
+            let (start, end) = if self.insertion_point() > selection_anchor {
                 (selection_anchor, self.insertion_point())
             } else {
                 (self.insertion_point(), selection_anchor)
-            }
+            };
+            (start, end + 1)
         })
     }
 
@@ -876,6 +886,31 @@ mod test {
         editor.run_edit_command(&EditCommand::Undo);
         assert_eq!(editor.get_buffer(), "This \r\n is a test");
     }
+
+    #[test]
+    fn test_swap_cursor_and_anchor() {
+        let mut editor = editor_with("This is some test content");
+        editor.line_buffer.set_insertion_point(0);
+        editor.update_selection_anchor(true);
+
+        for _ in 0..3 {
+            editor.run_edit_command(&EditCommand::MoveRight { select: true });
+        }
+        assert_eq!(editor.selection_anchor, Some(0));
+        assert_eq!(editor.insertion_point(), 3);
+        assert_eq!(editor.get_selection(), Some((0, 4)));
+
+        editor.run_edit_command(&EditCommand::SwapCursorAndAnchor);
+        assert_eq!(editor.selection_anchor, Some(3));
+        assert_eq!(editor.insertion_point(), 0);
+        assert_eq!(editor.get_selection(), Some((0, 4)));
+
+        editor.run_edit_command(&EditCommand::SwapCursorAndAnchor);
+        assert_eq!(editor.selection_anchor, Some(0));
+        assert_eq!(editor.insertion_point(), 3);
+        assert_eq!(editor.get_selection(), Some((0, 4)));
+    }
+
     #[cfg(feature = "system_clipboard")]
     mod without_system_clipboard {
         use super::*;

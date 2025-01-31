@@ -106,6 +106,10 @@ where
             let _ = input.next();
             Some(Command::RepeatLastAction)
         }
+        Some('o') => {
+            let _ = input.next();
+            Some(Command::SwapCursorAndAnchor)
+        }
         _ => None,
     }
 }
@@ -133,6 +137,7 @@ pub enum Command {
     RepeatLastAction,
     ChangeInside(char),
     DeleteInside(char),
+    SwapCursorAndAnchor,
 }
 
 impl Command {
@@ -213,6 +218,9 @@ impl Command {
             }
             Self::DeleteInside(_) => {
                 vec![]
+            }
+            Self::SwapCursorAndAnchor => {
+                vec![ReedlineOption::Edit(EditCommand::SwapCursorAndAnchor)]
             }
         }
     }
