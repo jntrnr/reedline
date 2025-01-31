@@ -267,6 +267,9 @@ pub enum EditCommand {
     /// Paste content from local buffer at the current cursor position
     Paste,
 
+    /// Swap the positions of the cursor and anchor
+    SwapCursorAndAnchor,
+
     /// Cut selection to system clipboard
     #[cfg(feature = "system_clipboard")]
     CutSelectionSystem,
@@ -365,6 +368,7 @@ impl Display for EditCommand {
             EditCommand::CutSelection => write!(f, "CutSelection"),
             EditCommand::CopySelection => write!(f, "CopySelection"),
             EditCommand::Paste => write!(f, "Paste"),
+            EditCommand::SwapCursorAndAnchor => write!(f, "SwapCursorAndAnchor"),
             #[cfg(feature = "system_clipboard")]
             EditCommand::CutSelectionSystem => write!(f, "CutSelectionSystem"),
             #[cfg(feature = "system_clipboard")]
@@ -401,6 +405,7 @@ impl EditCommand {
             | EditCommand::MoveLeftBefore { select, .. } => {
                 EditType::MoveCursor { select: *select }
             }
+            EditCommand::SwapCursorAndAnchor => EditType::MoveCursor { select: true },
 
             EditCommand::SelectAll => EditType::MoveCursor { select: true },
             // Text edits
