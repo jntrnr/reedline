@@ -1066,6 +1066,7 @@ impl Reedline {
             }
             ReedlineEvent::Esc => {
                 self.deactivate_menus();
+                self.editor.clear_selection_anchor();
                 Ok(EventStatus::Handled)
             }
             ReedlineEvent::CtrlD => {
